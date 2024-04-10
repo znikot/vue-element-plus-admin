@@ -1,6 +1,8 @@
 export interface UserLoginType {
   username: string
   password: string
+  captcha: string
+  captchaId: string
 }
 
 export interface UserType {
@@ -8,4 +10,10 @@ export interface UserType {
   password: string
   role: string
   roleId: string
+}
+
+export interface CaptchaType {
+  captchaEnabled: boolean
+  captcha: string
+  captchaId: string
 }

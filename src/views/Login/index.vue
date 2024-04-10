@@ -82,12 +82,12 @@ const themeChange = () => {
             >
               <LoginForm
                 v-if="isLogin"
-                class="p-20px h-auto m-auto lt-xl:rounded-3xl lt-xl:light:bg-white"
+                class="p-20px h-auto m-auto lt-xl:rounded-xl lt-xl:light:bg-white"
                 @to-register="toRegister"
               />
               <RegisterForm
                 v-else
-                class="p-20px h-auto m-auto lt-xl:rounded-3xl lt-xl:light:bg-white"
+                class="p-20px h-auto m-auto lt-xl:rounded-xl lt-xl:light:bg-white"
                 @to-login="toLogin"
               />
             </div>

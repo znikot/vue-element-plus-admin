@@ -11,7 +11,7 @@ export const constantRouterMap: AppRouteRecordRaw[] = [
   {
     path: '/',
     component: Layout,
-    redirect: '/dashboard/analysis',
+    redirect: '/console',
     name: 'Root',
     meta: {
       hidden: true
@@ -36,7 +36,7 @@ export const constantRouterMap: AppRouteRecordRaw[] = [
   },
   {
     path: '/login',
-    component: () => import('@/views/Login/Login.vue'),
+    component: () => import('@/views/login/index.vue'),
     name: 'Login',
     meta: {
       hidden: true,
@@ -67,16 +67,16 @@ export const constantRouterMap: AppRouteRecordRaw[] = [
       }
     ]
   },
-  {
-    path: '/404',
-    component: () => import('@/views/Error/404.vue'),
-    name: 'NoFind',
-    meta: {
-      hidden: true,
-      title: '404',
-      noTagsView: true
-    }
-  }
+  // {
+  //   path: '/404',
+  //   component: () => import('@/views/Error/404.vue'),
+  //   name: 'NoFind',
+  //   meta: {
+  //     hidden: true,
+  //     title: '404',
+  //     noTagsView: true
+  //   }
+  // }
 ]
 
 export const asyncRouterMap: AppRouteRecordRaw[] = [
@@ -93,7 +93,7 @@ export const asyncRouterMap: AppRouteRecordRaw[] = [
     children: [
       {
         path: 'analysis',
-        component: () => import('@/views/Dashboard/Analysis.vue'),
+        component: () => import('@/views/dashboard/Analysis.vue'),
         name: 'Analysis',
         meta: {
           title: t('router.analysis'),
@@ -103,7 +103,7 @@ export const asyncRouterMap: AppRouteRecordRaw[] = [
       },
       {
         path: 'workplace',
-        component: () => import('@/views/Dashboard/Workplace.vue'),
+        component: () => import('@/views/dashboard/console.vue'),
         name: 'Workplace',
         meta: {
           title: t('router.workplace'),

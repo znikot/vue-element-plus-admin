@@ -2,9 +2,9 @@
 import { reactive, ref, watch, onMounted, unref } from 'vue'
 import { Form, FormSchema } from '@/components/Form'
 import { useI18n } from '@/hooks/web/useI18n'
-import { ElCheckbox, ElLink } from 'element-plus'
+import { ElCheckbox, ElLink, ElInput } from 'element-plus'
 import { useForm } from '@/hooks/web/useForm'
-import { loginApi, getTestRoleApi, getAdminRoleApi } from '@/api/login'
+import { loginApi, getTestRoleApi, getAdminRoleApi, getCaptchaApi } from '@/api/login'
 import { useAppStore } from '@/store/modules/app'
 import { usePermissionStore } from '@/store/modules/permission'
 import { useRouter } from 'vue-router'
@@ -73,6 +73,32 @@ const schema = reactive<FormSchema[]>([
         width: '100%'
       },
       placeholder: 'admin or test'
+    }
+  },
+  {
+    field: 'captcha',
+    label: t('login.code'),
+    // value: 'admin',
+    component: 'Input',
+    colProps: {
+      span: 16
+    },
+    componentProps: {
+      placeholder: t('common.inputText') + t('login.code')
+    },
+    formItemProps: {
+      slots: {
+        default: () => {
+          return (
+            <>
+              <div class="w-[100%]">
+                <ElInput v-model="" />
+                <img class="w-[100%] h-[100%]" src="" />
+              </div>
+            </>
+          )
+        }
+      }
     }
   },
   {
@@ -247,7 +273,7 @@ const signIn = async () => {
           if (appStore.getDynamicRouter) {
             getRole()
           } else {
-            await permissionStore.generateRoutes('static').catch(() => {})
+            await permissionStore.generateRoutes('static').catch(() => { })
             permissionStore.getAddRouters.forEach((route) => {
               addRoute(route as RouteRecordRaw) // 动态添加可访问路由表
             })
@@ -276,8 +302,8 @@ const getRole = async () => {
     const routers = res.data || []
     userStore.setRoleRouters(routers)
     appStore.getDynamicRouter && appStore.getServerDynamicRouter
-      ? await permissionStore.generateRoutes('server', routers).catch(() => {})
-      : await permissionStore.generateRoutes('frontEnd', routers).catch(() => {})
+      ? await permissionStore.generateRoutes('server', routers).catch(() => { })
+      : await permissionStore.generateRoutes('frontEnd', routers).catch(() => { })
 
     permissionStore.getAddRouters.forEach((route) => {
       addRoute(route as RouteRecordRaw) // 动态添加可访问路由表
@@ -294,13 +320,6 @@ const toRegister = () => {
 </script>
 
 <template>
-  <Form
-    :schema="schema"
-    :rules="rules"
-    label-position="top"
-    hide-required-asterisk
-    size="large"
-    class="dark:(border-1 border-[var(--el-border-color)] border-solid)"
-    @register="formRegister"
-  />
+  <Form :schema="schema" :rules="rules" label-position="top" hide-required-asterisk size="large"
+    class="dark:(border-1 border-[var(--el-border-color)] border-solid)" @register="formRegister" />
 </template>

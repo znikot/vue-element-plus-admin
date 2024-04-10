@@ -4,6 +4,7 @@ import { ElRow, ElCol, ElSkeleton, ElCard, ElDivider, ElLink } from 'element-plu
 import { useI18n } from '@/hooks/web/useI18n'
 import { ref, reactive } from 'vue'
 import { CountTo } from '@/components/CountTo'
+import {Icon} from '@/components/Icon'
 import { formatTime } from '@/utils'
 import { Echart } from '@/components/Echart'
 import { EChartsOption } from 'echarts'
@@ -129,6 +130,8 @@ const { t } = useI18n()
                 <div class="mt-10px text-14px text-gray-500">
                   {{ t('workplace.toady') }}，20℃ - 32℃！
                 </div>
+                <Icon icon="carbon:dashboard"/>
+                <Icon icon="carbon:user"/>
               </div>
             </div>
           </ElCol>

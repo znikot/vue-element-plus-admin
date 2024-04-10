@@ -7,6 +7,7 @@ import { usePermissionStoreWithOut } from '@/store/modules/permission'
 import { usePageLoading } from '@/hooks/web/usePageLoading'
 import { NO_REDIRECT_WHITE_LIST } from '@/constants'
 import { useUserStoreWithOut } from '@/store/modules/user'
+import { getRoutersApi } from '@/api/login'
 
 const { start, done } = useNProgress()
 
@@ -28,7 +29,9 @@ router.beforeEach(async (to, from, next) => {
       }
 
       // 开发者可根据实际情况进行修改
-      const roleRouters = userStore.getRoleRouters || []
+      // const roleRouters = userStore.getRoleRouters || []
+      const res = await getRoutersApi()
+      const roleRouters = res.data || []
 
       // 是否使用动态路由
       if (appStore.getDynamicRouter) {
@@ -39,7 +42,7 @@ router.beforeEach(async (to, from, next) => {
         await permissionStore.generateRoutes('static')
       }
 
-      permissionStore.getAddRouters.forEach((route) => {
+      permissionStore.getAddRouters.forEach(route => {
         router.addRoute(route as unknown as RouteRecordRaw) // 动态添加可访问路由表
       })
       const redirectPath = from.query.redirect || to.path
@@ -57,7 +60,7 @@ router.beforeEach(async (to, from, next) => {
   }
 })
 
-router.afterEach((to) => {
+router.afterEach(to => {
   useTitle(to?.meta?.title as string)
   done() // 结束Progress
   loadDone()

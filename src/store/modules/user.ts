@@ -33,7 +33,7 @@ export const useUserStore = defineStore('user', {
       return this.tokenKey
     },
     getToken(): string {
-      return this.token
+      return 'Bearer '+this.token
     },
     getUserInfo(): UserType | undefined {
       return this.userInfo
