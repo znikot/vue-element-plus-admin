@@ -1,13 +1,5 @@
 // import Events from '@/common/interface/events'
 import { ElNotification } from 'element-plus'
-//
-export class Column {
-    constructor(prop, label, visible) {
-        this.prop = prop
-        this.label = label
-        this.visible = visible
-    }
-}
 
 export class EventListener {
     constructor(event, handler) {

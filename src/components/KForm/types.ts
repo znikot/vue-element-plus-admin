@@ -1,5 +1,5 @@
-export type KFormnFieldType = 'int' | 'float' | 'string' | 'select' | 'treeSelect' | 'switch' | 'radio' | 'password' | 'image'
-export type KFormnFieldRuleType = 'int' | 'float' | 'string'
+export type KFormFieldType = 'int' | 'float' | 'string' | 'select' | 'treeSelect' | 'switch' | 'radio' | 'password' | 'image' | 'icon'
+export type KFormFieldRuleType = 'int' | 'float' | 'string'
 
 export interface KFormFieldProps {
   /**
@@ -13,15 +13,15 @@ export interface KFormFieldProps {
   /**
    * 字段类型
    */
-  type: KFormnFieldType
+  type?: KFormFieldType
   /**
    * 字段选项
    */
-  options?: KFormTreeSelectOptions | KFormnDataOptions | KFormnDictOptions | KFormnSelectOptions | KFormnImageOptions
+  options?: KFormTreeSelectOption | KFormDataOption | KFormDictOption | KFormSelectOption | KFormImageOption
   /**
    * 字段校验规则
    */
-  rule?: KFormnFieldRule
+  rule?: KFormFieldRule
   /**
    * 默认值
    */
@@ -30,6 +30,10 @@ export interface KFormFieldProps {
    * 字段值类型转换
    */
   as?: string | number | boolean
+  /**
+   * 依赖字段，当依赖字段变化时，当前字段会重置
+   */
+  depend?: string
   /**
    * 字段值变更事件
    * @param value
@@ -78,7 +82,7 @@ export interface KFormProps {
   /**
    * 表单字段标题宽度
    */
-  labelWidth: number | string
+  labelWidth?: number | string
   /**
    * 表单提交
    * @param data 表单数据
@@ -89,40 +93,60 @@ export interface KFormProps {
    * 表单取消
    * @returns
    */
-  onCancel: () => void
+  onCancel?: () => void
 }
 
-export interface KFormTreeSelectOptions {
+export interface KFormTreeSelectOption {
   api: <T = any>() => Promise<IResponse<T>>
   valueField: string
   labelField?: string
   setLabelTo?: string
 }
 
-export interface KFormnFieldRule {
-  type: KFormnFieldRuleType
+export interface KFormFieldRule {
+  type: KFormFieldRuleType
   required?: boolean | ((data: any) => boolean)
   default?: any
 }
 
-export interface KFormnDataOptions {
-  data: KFormnLabelValue[]
+export interface KFormDataOption {
+  data: KFormLabelValue[]
 }
 
-export interface KFormnLabelValue {
+export interface KFormLabelValue {
   label: string
   value: string
+  /**
+   * 标签值分组
+   */
+  group?: string
 }
 
-export interface KFormnDictOptions {
+export interface KFormLabelValueGroup {
+  label: string
+  values: KFormLabelValue[]
+}
+
+export interface KFormDictOption {
   dictType: string
 }
 
-export interface KFormnSelectOptions {
-  data: KFormnLabelValue[]
+export interface KFormSelectOption {
+  data: KFormLabelValue[] | (() => KFormLabelValue[] | KFormLabelValueGroup[]) | KFormLabelValueGroup[]
+  group?: boolean
   multiple: boolean
+  placeholder?: string
+  // remote?: boolean
+  filterable?: boolean
+  labelField?: string | ((item: any) => string)
+  valueField?: string | ((item: any) => string)
+  groupField?: string | ((item: any) => string)
+  // remoteMethod?: (query: string) => void
+  // filterMethod?: (query: string) => void
+  optionEnable?: (item: any, value: any) => boolean
+  optionApi?: <T = any>(query?: string) => Promise<IResponse<T>>
 }
 
-export interface KFormnImageOptions {
+export interface KFormImageOption {
   multiple: boolean
 }

@@ -1,10 +1,6 @@
 import { defineStore } from 'pinia'
 import { asyncRouterMap, constantRouterMap } from '@/router'
-import {
-  generateRoutesByFrontEnd,
-  generateRoutesByServer,
-  flatMultiLevelRoutes
-} from '@/utils/routerHelper'
+import { generateRoutesByFrontEnd, generateRoutesByServer, flatMultiLevelRoutes } from '@/utils/routerHelper'
 import { store } from '../index'
 import { cloneDeep } from 'lodash-es'
 
@@ -20,7 +16,7 @@ export const usePermissionStore = defineStore('permission', {
     routers: [],
     addRouters: [],
     isAddRouters: false,
-    menuTabRouters: []
+    menuTabRouters: [],
   }),
   getters: {
     getRouters(): AppRouteRecordRaw[] {
@@ -34,19 +30,16 @@ export const usePermissionStore = defineStore('permission', {
     },
     getMenuTabRouters(): AppRouteRecordRaw[] {
       return this.menuTabRouters
-    }
+    },
   },
   actions: {
-    generateRoutes(
-      type: 'server' | 'frontEnd' | 'static',
-      routers?: AppCustomRouteRecordRaw[] | string[]
-    ): Promise<unknown> {
-      return new Promise<void>((resolve) => {
+    generateRoutes(type: 'server' | 'frontEnd' | 'static', routers?: AppCustomRouteRecordRaw[] | string[]): Promise<unknown> {
+      return new Promise<void>(resolve => {
         let routerMap: AppRouteRecordRaw[] = []
         if (type === 'server') {
           // 模拟后端过滤菜单
           routerMap = generateRoutesByServer(routers as AppCustomRouteRecordRaw[])
-          console.log(routerMap)
+          // console.log(routerMap)
         } else if (type === 'frontEnd') {
           // 模拟前端过滤菜单
           routerMap = generateRoutesByFrontEnd(cloneDeep(asyncRouterMap), routers as string[])
@@ -62,9 +55,9 @@ export const usePermissionStore = defineStore('permission', {
             name: '404Page',
             meta: {
               hidden: true,
-              breadcrumb: false
-            }
-          }
+              breadcrumb: false,
+            },
+          },
         ])
         // 渲染菜单的所有路由
         this.routers = cloneDeep(constantRouterMap).concat(routerMap)
@@ -76,11 +69,15 @@ export const usePermissionStore = defineStore('permission', {
     },
     setMenuTabRouters(routers: AppRouteRecordRaw[]): void {
       this.menuTabRouters = routers
-    }
+    },
+    resetRouters(): void {
+      this.routers = []
+      this.setIsAddRouters(false)
+    },
   },
   persist: {
-    paths: ['routers', 'addRouters', 'menuTabRouters']
-  }
+    paths: ['routers', 'addRouters', 'menuTabRouters'],
+  },
 })
 
 export const usePermissionStoreWithOut = () => {

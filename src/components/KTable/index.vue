@@ -1,59 +1,62 @@
 <template>
   <div v-loading="props.config.loading">
-    <el-alert :title="props.config.options.alert" type="warning" :closable="false"
+    <el-alert :title="getProp(props.config, 'options.alert', '')" type="warning" :closable="false"
       v-if="getProp(props.config, 'options.alert', '') != ''" />
     <Search :config="props.config.search" :params="state.searchParams"
       v-if="getProp(props.config, 'search.fields', []).length > 0"
       @search="onEvent(props.config.events, 'refresh', state)" @reset="resetSearch" />
     <TableHeader :buttons="props.config.buttons" :events="props.config.events" :columns="props.config.columns"
       :onColumnStatus="columnStatusChange" :tableStatus="state" :options="props.config.options"
-      @search="onEvent(props.config.events, 'refresh', state)" @reset="resetSearch"></TableHeader>
-    <el-table :data="tableDatas" header-cell-class-name="table-header-cell" row-key="id" style="width: 100%"
-      max-height="100%" class="base-table w100" :fit="true" :border="true"
-      :size="props.config.options && props.config.options.size ? props.config.options.size : 'default'" stripe
-      :table-layout="props.config.options && props.config.options.layout ? props.config.options.layout : 'fixed'"
-      :default-sort="props.config.defaultSort ?? {}" @select="onSelect" @select-all="onSelectAll"
-      @selection-change="onSelectionChange" @sort-change="onSortChange" v-bind="$attrs">
+      :search="props.config.search" @search="onEvent(props.config.events, 'refresh', state)" @reset="resetSearch"
+      v-if="getProp(props.config, 'options.header', true)">
+    </TableHeader>
+    <el-table :data="tableDatas" row-key="id" style="width: 100%" max-height="100%" class="w-full" :fit="true"
+      :border="false" :size="getProp(props.config, 'options.size', 'default')" stripe
+      :table-layout="getProp(props.config, 'options.layout', 'fixed')"
+      :default-sort="getProp(props.config, 'options.defaultSort', {})" @select="onSelect" @select-all="onSelectAll"
+      :tree-props="{ children: 'children', hasChildren: 'hasChildren' }" @selection-change="onSelectionChange"
+      @sort-change="onSortChange" v-bind="$attrs" :default-expand-all="props.config.options?.defaultExpandAll || false">
       <!-- 选择框 -->
       <el-table-column type="selection" width="50" align="center"
-        v-if="!props.config.options || !props.config.options.selection || props.config.options.selection.toString() != 'false'"></el-table-column>
+        v-if="getProp(props.config, 'options.selection', 'true').toString() != 'false'"></el-table-column>
       <el-table-column v-for="col in visibleColumns" :key="col.prop" :prop="col.prop" :label="col.label"
         :show-overflow-tooltip="shouldShowOverflowTooltip(col)"
-        :fixed="['true', 'right', 'left'].includes(col.fixed) ? col.fixed : false" :sortable="col.sortable ?? false"
-        :width="getPreferedColWidth(col)">
+        :fixed="['true', 'right', 'left'].includes(col.fixed as string) ? col.fixed : false"
+        :sortable="col.sortable ?? false" :width="getPreferedColWidth(col)">
         <template #default="scope">
-          <FieldRenderer :field="getProp(scope.row, col.prop, '')" :column="col"
-            :options="(col.renderer && col.renderer.options) || {}" :row="scope.row"
-            v-if="col.renderer && col.renderer.type != ''"></FieldRenderer>
+          <FieldRenderer :field="getProp(scope.row, col.prop, '')" :column="col" :options="col.renderer?.options"
+            :row="scope.row" v-if="col.renderer && col.renderer.type != ''"></FieldRenderer>
         </template>
       </el-table-column>
     </el-table>
   </div>
-  <div class="table-pagination" v-if="state.paging">
+  <div class="my-2" v-if="state.paging">
     <el-pagination :currentPage="state.searchParams.pageNum" :page-size="state.searchParams.pageSize"
-      :page-sizes="props.config.pageSizes ?? [10, 20, 50, 100]" background
+      :page-sizes="getProp(props.config, 'pageSizes', [10, 20, 50, 100])" background
       :layout="'sizes,total, ->, prev, pager, next, jumper'" :total="state.searchParams.$total"
       @size-change="onPageSizeChange" @current-change="onPageNumChange"></el-pagination>
   </div>
 </template>
-<script setup>
-import { onMounted, watch, computed, reactive, nextTick } from 'vue'
-import { Column, onEvent } from './index'
+<script setup lang="ts">
+import { onMounted, onUnmounted, watch, computed, reactive, nextTick } from 'vue'
+import { onEvent } from './index'
+import { KTableProps, KTableColumnProps, KTableDictRendererOption } from './types'
 import FieldRenderer from './FieldRenderer.vue'
 import TableHeader from './TableHeader.vue'
 import Search from './Search.vue'
 import { useDicts } from '@/utils/dict'
 import { getProp } from '@/utils/common'
 
-const props = defineProps(['config'])
+const props = defineProps<{ config: KTableProps }>()
 
 const tableDatas = computed(() => {
-  return props.config.data ? props.config.data.rows || [] : []
+  if (!props.config.data) return []
+  return props.config.data.rows || props.config.data || []
 })
 
-const visibleColumns = computed(() => {
+const visibleColumns = computed<KTableColumnProps[]>(() => {
   // console.log('calulate col visible')
-  let vCols = []
+  let vCols: KTableColumnProps[] = []
   for (let c of props.config.columns) {
     if (c.visible == undefined || c.visible == null) {
       // console.log('set column visible to true', c)
@@ -115,7 +118,7 @@ const state = reactive({
     sortField: '',
     sortDirection: '',
   },
-  dictTypes: [],
+  dictTypes: <string[]>[],
   dictColumns: {}, // prop: dictType
   dicts: {},
   dictLoaded: false,
@@ -162,16 +165,22 @@ const resolveTableDataInfo = () => {
 
 const analyzeDictColumns = () => {
   for (let c of props.config.columns) {
-    if (c.renderer && c.renderer.type == 'dict' && c.renderer.options && c.renderer.options.dictType) {
-      let dt = c.renderer.options.dictType
-      state.dictTypes.push(dt)
-      state.dictColumns[c.prop] = dt
+    if (!c.renderer || c.renderer.type != 'dict' || !c.renderer.options) {
+      continue
     }
+    let options = c.renderer.options as KTableDictRendererOption
+    state.dictTypes.push(options.dictType)
+    state.dictColumns[c.prop] = options.dictType
+    // if (c.renderer && c.renderer.type == 'dict' && c.renderer.options && c.renderer.options.dictType) {
+    // let dt = c.renderer.options.dictType
+    // state.dictTypes.push(dt)
+    // state.dictColumns[c.prop] = dt
+    // }
   }
 }
 
-const updateDictColumns = rows => {
-  if (state.dictColumns.length == 0 || !state.dictLoaded) return
+const updateDictColumns = (rows?: any) => {
+  if (Object.keys(state.dictColumns).length == 0 || !state.dictLoaded) return
   if (rows == null || rows == undefined) rows = tableDatas.value
   for (let row of rows) {
     // let row = rows[ridx]
@@ -196,6 +205,30 @@ const loadDicts = () => {
   })
 }
 
+const setDefaultSort = () => {
+  if (!props.config || !props.config.options || !props.config.options.defaultSort) {
+    return
+  }
+  let defaultSort = props.config.options.defaultSort
+  if (defaultSort.field && defaultSort.direction) {
+    state.searchParams.sortField = defaultSort.prop
+    state.searchParams.sortDirection = defaultSort.order
+  }
+}
+
+const unwatch = watch(
+  () => props.config.data,
+  v => {
+    //更新字典类型的字段数据
+    updateDictColumns([])
+    // 更新表格信息
+    resolveTableDataInfo()
+
+    nextTick()
+  }
+)
+
+
 onMounted(() => {
   // console.log(state)
   // state.searchParams.sortField = getProp(props.config, 'defaultSort.prop', '')
@@ -206,22 +239,15 @@ onMounted(() => {
   // loadDicts
   loadDicts()
 
+  // set default sort
+  setDefaultSort()
+
   // onEvent(props.config.events, 'refresh', state)
 })
 
-watch(
-  () => props.config.data,
-  v => {
-    //更新字典类型的字段数据
-    updateDictColumns([])
-    // 更新表格信息
-    resolveTableDataInfo()
-
-    // console.log('basetable data changed, datas:', v)
-
-    nextTick()
-  }
-)
+onUnmounted(() => {
+  unwatch()
+})
 
 // 表格事件
 const onSelect = (selection, row) => { }
@@ -244,16 +270,17 @@ const onSortChange = val => {
   onEvent(props.config.events, 'refresh', state)
 }
 
-const onPageNumChange = val => {
+const onPageNumChange = (val: number | string) => {
   // console.log('page changed', val)
   state.searchParams.pageNum = val
 
   // 触发刷新事件
   onEvent(props.config.events, 'refresh', state)
 }
-const onPageSizeChange = val => {
+const onPageSizeChange = (val: number | string) => {
   // console.log('page size changed', val)
   state.searchParams.pageSize = val
+  state.searchParams.pageNum = 1
   //触发刷新事件
   onEvent(props.config.events, 'refresh', state)
 }

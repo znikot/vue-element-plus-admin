@@ -1,16 +1,19 @@
 <template>
-    <div class="default-main zk-table-box">
-        <BaseTable :config="tableConfig" />
-    </div>
+    <ContentWrap>
+        <KTable :config="tableConfig" />
+    </ContentWrap>
 </template>
-<script setup>
+<script setup lang="ts">
 import { onMounted, reactive } from 'vue'
-import { useApi } from '@/common/utils/api'
-import { BaseTable } from '@/common/components/BaseTable'
+import { ContentWrap } from '@/components/ContentWrap'
+// import { useApi } from '@/common/utils/api'
+import { KTable } from '@/components/KTable'
+import { KTableProps, KTableSwitchRendererOption } from '@/components/KTable/types'
+import request from '@/axios'
 
-const userApi = useApi({ base: '/system/post' })
+// const userApi = useApi({ base: '/system/post' })
 
-const tableConfig = reactive({
+const tableConfig = reactive(<KTableProps>{
     columns: [
         {
             prop: 'id',
@@ -37,11 +40,12 @@ const tableConfig = reactive({
             label: '状态',
             renderer: {
                 type: 'switch',
-                options: {
+                options: <KTableSwitchRendererOption>{
                     active: '0',
                     inactive: '1',
+                    permissions: 'system:post:status'
                 },
-                changed: (from, to) => {},
+                changed: (from, to) => { },
             },
         },
         {
@@ -54,36 +58,24 @@ const tableConfig = reactive({
     ],
     data: [],
     buttons: [
-        {
-            name: 'add',
-            align: 'left',
-            label: '添加',
-        },
-        {
-            name: 'edit',
-            align: 'left',
-            label: '编辑',
-        },
-        {
-            name: 'delete',
-            align: 'left',
-            label: '删除',
-        },
+        { name: 'add', align: 'left', label: '添加', permissions: 'system:post:create' },
+        { name: 'edit', align: 'left', label: '编辑', permissions: 'system:post:edit' },
+        { name: 'delete', align: 'left', label: '删除', permissions: 'system:post:delete' },
     ],
     events: {
-        onColumnHide: column => {},
-        onColumnShow: column => {},
+        onColumnHide: column => { },
+        onColumnShow: column => { },
         onRefresh: () => {
             refreshData()
         },
-        onAdd: () => {},
-        onEdit: () => {},
-        onDelete: () => {},
+        onAdd: () => { },
+        onEdit: () => { },
+        onDelete: () => { },
     },
 })
 
 const refreshData = () => {
-    userApi.get('/list').then(res => {
+    request.get({ url: '/system/post/list' }).then(res => {
         tableConfig.data = res.data
     })
 }

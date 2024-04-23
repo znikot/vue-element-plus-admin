@@ -4,28 +4,24 @@
         <KForm :config="formConfig" />
     </ContentWrap>
 
-    <permission :config="state.permission" />
+    <permission ref="rolePermission" />
 </template>
-<script setup>
+<script setup lang="ts">
 import { ContentWrap } from '@/components/ContentWrap'
-import { onMounted, reactive } from 'vue'
+import { onMounted, reactive, ref } from 'vue'
 import { WarningConfirm, Success } from '@/utils/dlgs'
 import { KTable } from '@/components/KTable'
+import { KTableProps, KTableSwitchRendererOption } from '@/components/KTable/types'
 import { KForm } from '@/components/KForm'
 import permission from './permission.vue'
 import request from '@/axios'
 
-// const roleApi = useApi({ base: '/system/role' })
+const rolePermission = ref(null)
 
 const state = reactive({
-    permission: {
-        open: false,
-        roleId: '',
-        roleName: '',
-    },
 })
 
-const tableConfig = reactive({
+const tableConfig = reactive<KTableProps>({
     columns: [
         { prop: 'id', label: 'ID' },
         { prop: 'roleName', label: '角色名称' },
@@ -48,9 +44,10 @@ const tableConfig = reactive({
             },
             renderer: {
                 type: 'switch',
-                options: {
+                options: <KTableSwitchRendererOption>{
                     active: '0',
                     inactive: '1',
+                    permissions: ['system:role:status'],
                     isEnable: row => {
                         return row.id != 1
                     },
@@ -71,7 +68,7 @@ const tableConfig = reactive({
                             label: '编辑',
                             icon: 'ep:edit',
                             tip: '修改',
-                            permissions: [],
+                            permissions: ['system:role:edit'],
                             isVisible: row => row.id != 1,
                             isEnable: row => row.id != 1,
                             action: row => editRole(row.id, row),
@@ -80,7 +77,7 @@ const tableConfig = reactive({
                             type: 'success',
                             label: '授权',
                             icon: 'ep:key',
-                            permissions: [],
+                            permissions: ['system:role:permission'],
                             isVisible: row => row.id != 1,
                             action: row => permissionAssign(row),
                         },
@@ -88,6 +85,7 @@ const tableConfig = reactive({
                             type: 'danger',
                             label: '删除',
                             icon: 'ep:delete',
+                            permissions: ['system:role:delete'],
                             isVisible: row => {
                                 return row.id != 1
                             },
@@ -106,9 +104,9 @@ const tableConfig = reactive({
     ],
     data: [],
     buttons: [
-        { name: 'add', align: 'left', label: '添加' },
-        { name: 'edit', align: 'left', label: '编辑', isEnable: tableStatus => tableStatus.selectedIds.length == 1 },
-        { name: 'delete', align: 'left', label: '删除', isEnable: tableStatus => tableStatus.selectedIds.length > 0 },
+        { name: 'add', align: 'left', label: '添加', permissions: ['system:role:create'] },
+        { name: 'edit', align: 'left', label: '编辑', permissions: ['system:role:edit'], isEnable: tableStatus => tableStatus.selectedIds.length == 1 },
+        { name: 'delete', align: 'left', label: '删除', permissions: ['system:role:delete'], isEnable: tableStatus => tableStatus.selectedIds.length > 0 },
     ],
     events: {
         onRefresh: ts => refreshData(ts.searchParams),
@@ -135,7 +133,7 @@ const formConfig = reactive({
         { prop: 'remark', label: '备注', type: 'textarea' },
     ],
     layout: [{ roleName: 12, roleKey: 12 }, { remark: 24 }],
-    onSave: data => {
+    onSubmit: data => {
         let api = data.id ? request.put : request.post
         api({ url: '/system/role', data: data }).then(res => {
             if (res.code == 200) {
@@ -172,9 +170,7 @@ const deleteRoles = (ids, roles) => {
 
 // 角色授权
 const permissionAssign = row => {
-    state.permission.roleId = row.id
-    state.permission.roleName = row.roleName
-    state.permission.open = true
+    rolePermission.value.openRoleMenu(row.id, row.roleName)
 }
 
 const refreshData = params => {

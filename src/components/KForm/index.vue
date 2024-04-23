@@ -32,15 +32,16 @@
     </template>
   </el-dialog>
 </template>
-<script setup>
+<script setup lang="ts">
 import { onMounted, computed, reactive, watch, ref } from 'vue'
 import FormItem from './FormItem.vue'
+import { KFormProps, KFormFieldProps } from './types'
 import { useDicts } from '@/utils/dict'
 import { convert } from '@/utils/common'
 import { Warn, Error } from '@/utils/dlgs'
 import { useEventBus } from '@/hooks/event/useEventBus'
 
-const props = defineProps(['config'])
+const props = defineProps<{ config: KFormProps }>()
 const formRef = ref()
 
 const $event = useEventBus()
@@ -220,14 +221,14 @@ const saveAction = async () => {
   formRef.value.validate((ok, fields) => {
     if (ok) {
       // 校验通过
-      if (typeof props.config.onSave == 'function') {
+      if (typeof props.config.onSubmit == 'function') {
         // 转换类型
         for (let k in state.formData) {
           if (state.fieldAs[k]) {
             state.formData[k] = convert(state.formData[k], state.fieldAs[k])
           }
         }
-        props.config.onSave(state.formData)
+        props.config.onSubmit(state.formData)
       } else {
         Error('表单的 onSave 未配置')
       }

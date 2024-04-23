@@ -1,24 +1,22 @@
 <template>
-    <div class="default-main zk-table-box">
-        <BaseTable :config="tableConfig" />
-        <BaseForm :config="formConfig" />
-    </div>
+    <ContentWrap>
+        <KTable :config="tableConfig" />
+    </ContentWrap>
+    <KForm :config="formConfig" />
 </template>
-<script setup>
+<script setup lang="ts">
 import { onMounted, reactive } from 'vue'
-import { useApi } from '@/common/utils/api'
-import { Success, Error, WarningConfirm } from '@/common/utils/dlgs'
-import { BaseTable } from '@/common/components/BaseTable'
-import { BaseForm } from '@/common/components/BaseForm'
+import { ContentWrap } from '@/components/ContentWrap'
+import { Success, WarningConfirm } from '@/utils/dlgs'
+import { KTable } from '@/components/KTable'
+import { KTableProps, KTableColumnProps, KTableTagRendererOption, KTableDictRendererOption, KTableSwitchRendererOption, KTableButtonsRendererOption } from '@/components/KTable/types'
+import { KForm } from '@/components/KForm'
+import { KFormProps, KFormTreeSelectOption } from '@/components/KForm/types'
+import request from '@/axios'
 
-const menuApi = useApi({ base: '/system/menu' })
 
-const tableConfig = reactive({
-    columns: [
-        // {
-        //     prop: 'id',
-        //     label: 'ID',
-        // },
+const tableConfig = reactive(<KTableProps>{
+    columns: <KTableColumnProps[]>[
         {
             prop: 'menuName',
             label: '菜单名称',
@@ -29,7 +27,7 @@ const tableConfig = reactive({
             label: '终端类型',
             renderer: {
                 type: 'dict',
-                options: {
+                options: <KTableDictRendererOption>{
                     dictType: 'sys_terminal_type',
                     tagLabel: {
                         1: 'WEB',
@@ -62,7 +60,7 @@ const tableConfig = reactive({
             label: '类型',
             renderer: {
                 type: 'tag',
-                options: {
+                options: <KTableTagRendererOption>{
                     tagLabel: {
                         M: '目录',
                         C: '菜单',
@@ -83,7 +81,7 @@ const tableConfig = reactive({
                 let action = to == '0' ? 'disable' : 'enable'
                 WarningConfirm(`确定要 ${action == 'disable' ? '禁用' : '启用'} ${row.menuName} 吗？`).then(res => {
                     tableConfig.loading = true
-                    menuApi.put('/status/' + action + '/' + row.id).then(res => {
+                    request.put({ url: `/system/menu/status/${action}/${row.id}` }).then(res => {
                         tableConfig.loading = false
                         if (res.code == 200) {
                             Success(`菜单 ${row.menuName} ${action == 'disable' ? '禁用' : '启用'}成功`)
@@ -94,13 +92,14 @@ const tableConfig = reactive({
             },
             renderer: {
                 type: 'switch',
-                options: {
+                options: <KTableSwitchRendererOption>{
                     active: '0',
                     inactive: '1',
                     labels: {
                         1: '停用',
                         0: '启用',
                     },
+                    permissions: ['sys:menu:status'],
                 },
             },
         },
@@ -117,28 +116,16 @@ const tableConfig = reactive({
             fixed: 'right',
             renderer: {
                 type: 'buttons',
-                options: {
+                options: <KTableButtonsRendererOption>{
                     buttons: [
+                        { type: 'primary', label: '编辑', icon: 'ep:edit', permissions: 'system:menu:edit', action: row => editMenu(row.id), },
                         {
-                            type: 'primary',
-                            label: '编辑',
-                            icon: 'el-icon-Edit',
-                            action: row => editMenu(row.id),
+                            type: 'success', label: '添加子菜单', icon: 'ep:plus', permissions: 'system:menu:create',
+                            isVisible: row => row.menuType != 'F' && row.status == 0, action(row) { addMenu(row.id) },
                         },
                         {
-                            type: 'success',
-                            label: '添加子菜单',
-                            icon: 'el-icon-Plus',
-                            isVisible: row => row.menuType != 'F' && row.status == 0,
-                            action: row => {
-                                addMenu(row.id)
-                            },
-                        },
-                        {
-                            type: 'danger',
-                            label: '删除',
-                            icon: 'el-icon-Delete',
-                            action: row => deleteMenu(row.id,row.menuName),
+                            type: 'danger', label: '删除', icon: 'ep:delete', permissions: 'system:menu:delete',
+                            action: row => deleteMenu(row.id, row.menuName),
                         },
                     ],
                 },
@@ -147,11 +134,13 @@ const tableConfig = reactive({
     ],
     options: {
         selection: 'false',
+        defaultExpandAll: false,
     },
     data: [],
     buttons: [
         {
             name: 'add',
+            permissions: 'system:menu:create',
             action: () => {
                 addMenu()
             },
@@ -171,13 +160,13 @@ const tableConfig = reactive({
     ],
     loading: false,
     events: {
-        onRefresh: tableStatus => {
+        onRefresh: _ => {
             refreshData()
         },
     },
 })
 
-const formConfig = reactive({
+const formConfig = reactive(<KFormProps>{
     open: false,
     title: '添加/编辑菜单',
     newTitle: '添加菜单',
@@ -193,9 +182,9 @@ const formConfig = reactive({
             type: 'treeSelect',
             as: 'string',
             default: '0', //默认为顶层菜单
-            options: {
-                treeApi: () => {
-                    return menuApi.get('/treeselect')
+            options: <KFormTreeSelectOption>{
+                api: () => {
+                    return request.get({ url: '/system/menu/treeselect' })
                 },
                 valueField: 'id',
             },
@@ -228,6 +217,7 @@ const formConfig = reactive({
         {
             prop: 'icon',
             label: '图标',
+            type: 'icon'
         },
         {
             prop: 'terminalType',
@@ -261,14 +251,15 @@ const formConfig = reactive({
     ],
     layout: [
         { menuName: 12, parentId: 12 },
-        { terminalType: 12, menuType: 12 },
-        { visible: 12, icon: 12 },
-        { menuPath: 12, component: 12 },
+        { menuPath: 12, icon: 12 },
+        { component: 24 },
         { perms: 12, orderNum: 12 },
+        { terminalType: 12, visible: 12 },
+        { menuType: 24 },
     ],
-    onSave: data => {
-        let api = data.id ? menuApi.put : menuApi.post
-        api('', data).then(res => {
+    onSubmit: data => {
+        let api = data.id ? request.put : request.post
+        api({ url: '/system/menu', data: data }).then(res => {
             if (res.code == 200) {
                 formConfig.open = false
                 Success(`菜单${data.id ? '编辑' : '添加'}成功`)
@@ -278,7 +269,7 @@ const formConfig = reactive({
     },
 })
 
-const addMenu = parentId => {
+const addMenu = (parentId?) => {
     formConfig.data = {
         parentId: parentId || 0,
     }
@@ -286,7 +277,7 @@ const addMenu = parentId => {
 }
 
 const editMenu = id => {
-    menuApi.get(`/${id}`).then(res => {
+    request.get({ url: `/system/menu/${id}` }).then(res => {
         formConfig.data = res.data
         formConfig.open = true
     })
@@ -296,18 +287,18 @@ const deleteMenu = (id, name) => {
     WarningConfirm(`确定要删除菜单 [${name}] 吗？`)
         .then(res => {
             if (res) {
-                menuApi.delete(`/${id}`).then(res => {
+                request.delete({ url: `/system/menu/${id}` }).then(res => {
                     Success(`菜单 [${name}] 已删除`)
                     refreshData()
                 })
             }
         })
-        .catch(() => {})
+        .catch(() => { })
 }
 
 const refreshData = () => {
     tableConfig.loading = true
-    menuApi.get('/tree').then(res => {
+    request.get({ url: '/system/menu/tree', params: { sortField: 'OrderNum', sortDirection: 'ascending' } }).then(res => {
         tableConfig.data = res.data
         tableConfig.loading = false
     })

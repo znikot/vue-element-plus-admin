@@ -11,7 +11,7 @@ import { WarningConfirm, Success, Error } from '@/utils/dlgs'
 import { KTable } from '@/components/KTable'
 import { KTableProps, KTableColumnProps, KTableButtonsRendererOption, KTableSwitchRendererOption, KTableDictRendererOption } from '@/components/KTable/types'
 import { KForm } from '@/components/KForm'
-import { KFormProps, KFormnSelectOptions, KFormTreeSelectOptions } from '@/components/KForm/types'
+import { KFormProps, KFormSelectOption, KFormTreeSelectOption } from '@/components/KForm/types'
 import request from '@/axios'
 
 
@@ -32,12 +32,13 @@ const tableConfig = reactive(<KTableProps>{
             prop: 'userName',
             label: '用户名',
             sortable: 'custom',
+            width: 100,
         },
         {
             prop: 'realName',
             label: '真实姓名',
             sortable: 'custom',
-            width: 100,
+            width: 120,
         },
         {
             prop: 'deptName',
@@ -66,6 +67,7 @@ const tableConfig = reactive(<KTableProps>{
             prop: 'status',
             label: '状态',
             sortable: 'custom',
+            width: 80,
             changed: (row, to) => {
                 let action = to == '0' ? 'disable' : 'enable'
                 WarningConfirm(`确定要${action == 'disable' ? '停用' : '启用'} ${row.realName} 吗？`).then(() => {
@@ -82,6 +84,7 @@ const tableConfig = reactive(<KTableProps>{
                 options: <KTableSwitchRendererOption>{
                     active: '0',
                     inactive: '1',
+                    permissions: ['system:user:status'],
                     isEnable: row => {
                         return row.id != 1
                     },
@@ -101,9 +104,9 @@ const tableConfig = reactive(<KTableProps>{
                         {
                             type: 'primary',
                             label: '编辑',
-                            icon: 'ep:dit',
+                            icon: 'ep:edit',
                             tip: '修改用户信息',
-                            permissions: [],
+                            permissions: ['system:user:edit'],
                             isVisible: row => {
                                 return row.id != 1
                             },
@@ -116,7 +119,7 @@ const tableConfig = reactive(<KTableProps>{
                             label: '删除',
                             icon: 'ep:delete',
                             tip: '修改用户信息',
-                            permissions: [],
+                            permissions: ['system:user:delete'],
                             isVisible: row => {
                                 return row.id != 1
                             },
@@ -139,22 +142,22 @@ const tableConfig = reactive(<KTableProps>{
     },
     data: null,
     buttons: [
-        { name: 'add', label: '添加', action: _ => addUser() },
+        { name: 'add', label: '添加', permissions: 'system:user:create', action: _ => addUser() },
         {
             name: 'edit',
             label: '编辑',
-            isEnable: ts => ts.selectedIds.length == 1 && ts.selectedIds[0] != 1,
-            action: ts => {
-                editUser(ts.selectedIds[0]) // 上面的isEnable控制必须有选中且选中一个
-            },
+            permissions: 'system:user:edit',
+            isEnable(ts) { return ts.selectedIds.length == 1 && ts.selectedIds[0] != 1 },// 选中一个时可点
+            action(ts) { editUser(ts.selectedIds[0]) },
         },
         {
             name: 'delete',
             label: '删除',
+            permissions: 'system:user:delete',
             isEnable: ts => ts.selectedIds.length > 1 || (ts.selectedIds.length == 1 && ts.selectedIds[0] != 1),
         },
-        { name: 'import' },
-        { name: 'export' },
+        { name: 'import', permissions: 'system:user:import' },
+        { name: 'export', permissions: 'system:user:export' },
     ],
     search: {
         fields: [
@@ -165,12 +168,14 @@ const tableConfig = reactive(<KTableProps>{
                 prop: 'status',
                 label: '状态',
                 type: 'select',
-                options: <KFormnSelectOptions>{
+                options: <KFormSelectOption>{
                     data: [
-                        { label: '启用', value: '0' },
-                        { label: '停用', value: '1' },
+                        { label: '启用', value: '0', group: '' },
+                        { label: '停用', value: '1', group: '' },
                     ],
-                    multiple: true,
+                    multiple: false,
+                    placeholder: '请选择状态',
+                    filterable: false,
                 },
             },
         ],
@@ -204,7 +209,7 @@ const formConfig = reactive(<KFormProps>{
             prop: 'deptId',
             label: '所属部门',
             type: 'treeSelect',
-            options: <KFormTreeSelectOptions>{
+            options: <KFormTreeSelectOption>{
                 api: () => {
                     return request.get({ url: '/system/dept/treeselect' })
                 },
@@ -239,7 +244,7 @@ const formConfig = reactive(<KFormProps>{
         { prop: 'remark', label: '备注', type: 'textarea' },
         { prop: 'avator', label: '头像', type: 'image', options: { multiple: false } },
     ],
-    layout: [{ userName: 12, deptId: 12 }, { realName: 12, gender: 12 }, { passwd: 12, roles: 12 }, { phoneNumber: 12, email: 12 }, { avator: 24 }, { remark: 24 }],
+    layout: [{ userName: 12, realName: 12 }, { deptId: 24 }, { gender: 24 }, { passwd: 24 }, { roles: 24 }, { phoneNumber: 12, email: 12 }, { avator: 24 }, { remark: 24 }],
     onSubmit: (data: any) => {
         let api = data.id ? request.put : request.post
         api({ url: '/system/user', data: data }).then(res => {

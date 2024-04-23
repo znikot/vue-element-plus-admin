@@ -1,6 +1,5 @@
 import request from '@/axios'
 
-
 /**
  * 表格列显示逻辑
  * 在 TableHeader.vue 中触发
@@ -12,7 +11,7 @@ export function onTableColumnShow(code, col) {
   //     console.log(res)
   //   })
   request.delete({ url: '/system/grid/col', data: { code: code, col: col.prop } }).then(res => {
-    console.log(res)
+    // console.log(res)
   })
 }
 
@@ -27,7 +26,7 @@ export function onTableColumnHide(code, col) {
   //     console.log(res)
   //   })
   request.post({ url: '/system/grid/col', data: { code: code, col: col.prop } }).then(res => {
-    console.log(res)
+    // console.log(res)
   })
 }
 

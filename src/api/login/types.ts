@@ -10,6 +10,9 @@ export interface UserType {
   password: string
   role: string
   roleId: string
+  user: any
+  permissions: string[]
+  roles: string[]
 }
 
 export interface CaptchaType {

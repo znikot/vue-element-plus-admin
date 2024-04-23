@@ -10,7 +10,7 @@ export const loginApi = (data: UserLoginType): Promise<IResponse<UserType>> => {
 }
 
 export const loginOutApi = (): Promise<IResponse> => {
-  return request.get({ url: '/loginOut' })
+  return request.post({ url: '/logout' })
 }
 
 export const getCaptchaApi = (): Promise<IResponse<CaptchaType>> => {

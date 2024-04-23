@@ -2,7 +2,7 @@
   <div class="flex items-center">
     <el-form :model="props.params" @keyup.enter="emit('search')" class="items-center">
       <el-row>
-        <FormItem v-for="(field, idx) in props.config.fields" :key="idx" :field="field" :value="props.params" :dicts="state.dicts" class="ml-2"/>
+        <FormItem v-for="(field, idx) in props.config.fields" :key="idx" :field="field" :value="props.params" :dicts="state.dicts" class="ml-3"/>
         <!-- <div class="flex items-center">
           <el-button type="primary" @click="emit('search')" size="small">
             <Icon icon="el-icon-Search" />

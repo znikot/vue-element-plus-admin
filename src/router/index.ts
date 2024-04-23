@@ -102,7 +102,7 @@ export const asyncRouterMap: AppRouteRecordRaw[] = [
         }
       },
       {
-        path: 'workplace',
+        path: 'console',
         component: () => import('@/views/dashboard/console.vue'),
         name: 'Workplace',
         meta: {

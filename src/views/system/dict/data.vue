@@ -1,66 +1,72 @@
 <template>
     <div class="default-main zk-table-box">
-        <BaseTable :config="table" />
-        <BaseForm :config="form" />
+        <KTable :config="table" />
     </div>
 </template>
-<script setup>
-import { reactive, onMounted } from 'vue'
-import { useRoute } from 'vue-router'
-import { useApi } from '@/common/utils/api'
-import { WarningConfirm, Success } from '@/common/utils/dlgs'
-import { BaseTable } from '@/common/components/BaseTable'
-import { BaseForm } from '@/common/components/BaseForm'
+<script setup lang="ts">
+import { reactive, onMounted, onUnmounted, toRaw } from 'vue'
+import { WarningConfirm, Success, Error } from '@/utils/dlgs'
+import { KTable } from '@/components/KTable'
+import { KTableProps } from '@/components/KTable/types'
+import request from '@/axios'
 
-const dataApi = useApi({ base: '/system/dict/data' })
-const route = useRoute()
-
-const table = reactive({
+const table = reactive(<KTableProps>{
+    options: {
+        columnHidden: false,
+        defaultSort: { prop: 'dictSort', order: 'ascending' },
+    },
     columns: [
         {
             prop: 'dictLabel',
-            label: '字典标签',
+            label: '标签',
+            changed: (r, f) => fieldChanged(r, f),
+            renderer: {
+                type: 'text-input'
+            }
         },
         {
             prop: 'dictCode',
-            label: '字典编码',
+            label: '编码',
+            changed: (r, f) => fieldChanged(r, f),
+            renderer: {
+                type: 'text-input'
+            }
         },
         {
             prop: 'dictValue',
-            label: '字典值',
+            label: '值',
+            changed: (r, f) => fieldChanged(r, f),
+            renderer: {
+                type: 'text-input'
+            }
         },
         {
             prop: 'dictType',
-            label: '字典类型',
+            label: '类型',
+            visible: false,
         },
         {
             prop: 'dictSort',
-            label: '字典排序',
+            label: '排序',
+            changed: (r, f) => fieldChanged(r, f),
+            renderer: {
+                type: 'number-input'
+            }
         },
         {
             prop: 'status',
             label: '状态',
-            changed: (row, to) => {
-                let action = to == '0' ? 'disable' : 'enable'
-                WarningConfirm(`确定要${action == 'enable' ? '启用' : '停用'}`).then(() => {
-                    dataApi.put(`/status/${action}/${row.id}`).then(res => {
-                        if (res.code == 200) {
-                            Success(`${action == 'enable' ? '启用' : '停用'}成功`)
-                            row.status = to == '0' ? '1' : '0'
-                        } else {
-                        }
-                    })
-                })
-            },
+            changed: (r, f) => fieldChanged(r, f),
             renderer: {
                 type: 'switch',
                 options: {
-                    activeValue: 0,
-                    inactiveValue: 1,
+                    bind: true,
+                    active: '0',
+                    inactive: '1',
                 },
             },
         },
-        { prop: 'remark', label: '备注' },
+        { prop: 'remark', label: '备注', renderer: { type: 'text-input' } },
         {
             prop: 'operation',
             label: '操作',
@@ -69,94 +75,147 @@ const table = reactive({
                 type: 'buttons',
                 options: {
                     buttons: [
-                        { type: 'primary', icon: 'el-icon-Edit', label: '编辑', action: row => editData(row.id) },
-                        { type: 'danger', icon: 'el-icon-Delete', label: '删除', action: row => deleteData([row.id], [row]) },
+                        { type: 'danger', icon: 'ep:delete', label: '删除', action: row => deleteData([row.id], [row]) },
                     ],
                 },
             },
         },
     ],
     loading: false,
-    buttons: [{ name: 'add' }, { name: 'edit', isEnable: ts => ts.selectedIds.length == 1 }, { name: 'delete', isEnable: ts => ts.selectedIds.length > 0 }],
+    buttons: [
+        { name: 'add' },
+        { name: 'delete', isEnable: ts => ts.selectedIds.length > 0 },
+        { name: 'save', label: '保存', type: 'success', icon: 'ep:check', isEnable: _ => isChanged(), action: _ => saveData() },
+        { name: 'cancel', label: '取消', type: 'danger', icon: 'ep:close', isEnable: _ => isChanged(), action: _ => refreshData() },
+    ],
     events: {
-        onRefresh: ts => {
-            refreshData(ts.searchParams)
-        },
+        onRefresh: _ => { refreshData() },
         onAdd: () => addData(),
-        onEdit: ts => editData(ts.selectedIds[0]),
         onDelete: ts => deleteData(ts.selectedIds, ts.selectedRows),
     },
 })
 
-const form = reactive({
-    open: false,
-    title: '新增/编辑字典数据',
-    newTitle: '新增字典数据',
-    editTitle: '编辑字典数据',
-    fields: [
-        { prop: 'dictLabel', label: '字典标签', rule: { required: true } },
-        { prop: 'dictCode', label: '字典编码', type: 'int', rule: { required: true } },
-        { prop: 'dictValue', label: '字典值', rule: { required: true } },
-        { prop: 'dictSort', label: '字典排序', type: 'int', default: 0 },
-    ],
-    layout: [
-        { dictLabel: 12, dictCode: 12 },
-        { dictValue: 12, dictSort: 12 },
-    ],
-    onSave: data => saveData(data),
-})
-
 const state = reactive({
     dictType: '',
+    changed: false,
+    deleteIds: []
 })
 
 const addData = () => {
-    form.data = null
-    form.open = true
-}
+    table.data.push({ id: getNewId(), status: '0', editType: 'new', dictType: state.dictType, dictSort: getMaxSort() })
 
-const editData = id => {
-    dataApi.get(`/${id}`).then(res => {
-        form.data = res.data
-        form.open = true
-    })
+    state.changed = true
 }
 
 const deleteData = (ids, rows) => {
     WarningConfirm(`确定要删除选中的${ids.length > 1 ? ids.length + '个' : ''}字典数据吗？`)
         .then(() => {
-            dataApi.delete(`/${ids.join(',')}`).then(res => {
-                Success('选中字典数据已删除')
-                refreshData()
-            })
+            // request.delete({ url: `/${ids.join(',')}` }).then(res => {
+            //     Success('选中字典数据已删除')
+            //     refreshData()
+            // })
+            for (let i = 0; i < table.data.length; i++) {
+                const item = table.data[i]
+                if (ids.includes(item.id)) {
+                    table.data.splice(table.data.indexOf(item), 1)
+                    if (BigInt(item.id) > 0) {
+                        state.deleteIds.push(item.id)
+                    }
+                    state.changed = true
+                    i--
+                }
+            }
         })
-        .catch(() => {})
+        .catch(() => { })
 }
 
-const saveData = data => {
-    data.dictType = state.dictType
-    let api = data.id ? dataApi.put : dataApi.post
-    api('', data).then(res => {
-        if (res.code == 200) {
-            Success('字典数据保存成功')
-            form.open = false
-            refreshData()
-        }
-    })
+const saveData = async () => {
+    const rawData = toRaw(table.data)
+    let dictDatas = {
+        deleteIds: toRaw(state.deleteIds),
+        newDatas: rawData.filter(item => item.editType == 'new'),
+        editDatas: rawData.filter(item => item.editType == 'edit').map(item => {
+            return {
+                dictLabel: item.dictLabel,
+                dictCode: item.dictCode,
+                dictValue: item.dictValue,
+                id: item.id,
+                dictSort: item.dictSort,
+                status: item.status,
+                remark: item.remark
+            }
+        }),
+    }
+
+    try {
+        table.loading = true
+        await request.post({ url: '/system/dict/data/edit', data: dictDatas })
+        refreshData()
+        Success('字典数据保存成功')
+    } catch (e) {
+        Error('字典数据保存失败')
+    } finally {
+        table.loading = false
+    }
 }
 
-const refreshData = params => {
-    params = params || {}
-    params.dictType = state.dictType
+const refreshData = () => {
+    const params = { dictType: state.dictType, paging: false }
     table.loading = true
-    dataApi.get('/list', params).then(res => {
+    request.get({ url: '/system/dict/data/list', params: params }).then(res => {
         table.loading = false
         table.data = res.data
+        state.changed = false
     })
 }
 
+
 onMounted(() => {
-    state.dictType = route.params.type
-    refreshData()
+    // state.dictType = route.params.type
+    // refreshData()
 })
+
+onUnmounted(() => { })
+
+const loadDictData = (dictType: string) => {
+    state.dictType = dictType
+    refreshData()
+}
+
+defineExpose({ loadDictData })
+
+
+const isChanged = () => {
+    return state.changed
+}
+
+const fieldChanged = (row, field) => {
+    state.changed = true
+    if (row.editType != 'new') {
+        row.editType = 'edit'
+    }
+}
+
+const getMaxSort = () => {
+    let maxSort = 0
+    toRaw(table.data).forEach(item => {
+        if (item.dictSort > maxSort) {
+            maxSort = item.dictSort
+        }
+    })
+    return maxSort + 1
+}
+
+const getNewId = () => {
+    let id = BigInt(0)
+    toRaw(table.data).forEach(item => {
+        if (BigInt(item.id) < id) {
+            id = BigInt(item.id)
+        }
+    })
+    if (id > 0)
+        id = 0
+    return (id - BigInt(1)).toString()
+}
+
 </script>

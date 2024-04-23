@@ -20,7 +20,7 @@
     ">
       <el-radio-group v-model="props.value[props.field.prop]">
         <el-radio v-for="(dict, idx) in getProp(props.dicts, `${props.field.options.dictType}.items`, [])"
-          :label="convertDictValue(dict.dictValue)" :key="idx">
+          :value="convertDictValue(dict.dictValue)" :key="idx">
           {{ dict.dictLabel }}
         </el-radio>
       </el-radio-group>
@@ -42,18 +42,33 @@
     </template>
 
     <!-- 下拉选项，选项支持从api获取 -->
-    <template v-if="props.field.type == 'select'">
+    <template v-if="props.field.type == 'select' && !props.field.options?.group">
       <el-select v-model="props.value[props.field.prop]" @change="onChange" clearable
-        :multiple="getProp(props.field, 'options.multiple', false)">
+        :multiple="getProp(props.field, 'options.multiple', false)"
+        :placeholder="getProp(props.field, 'options.placeholder', '请选择')" class="min-w-30" :loading="state.loading"
+        :filterable="props.field.options?.filterable || false" remote-show-suffix :filter-method="selectFilterMethod">
         <el-option v-for="(item, idx) in state.optionData" :key="idx" :label="item.label" :value="item.value"
           :disabled="execProp(props.field, 'options.optionEnable', false, item, props.value)" />
+      </el-select>
+    </template>
+
+    <!-- 分组下拉框 -->
+    <template v-if="props.field.type == 'select' && props.field.options?.group">
+      <el-select v-model="props.value[props.field.prop]" @change="onChange" clearable
+        :multiple="getProp(props.field, 'options.multiple', false)"
+        :placeholder="getProp(props.field, 'options.placeholder', '请选择')" class="min-w-30" :loading="state.loading"
+        :filterable="props.field.options?.filterable || false" remote-show-suffix :filter-method="selectFilterMethod">
+        <el-option-group v-for="(g, i) in state.groupOptionData" :key="i" :label="g.label">
+          <el-option v-for="(item, idx) in g.values" :key="idx" :label="item.label" :value="item.value"
+            :disabled="execProp(props.field, 'options.optionEnable', false, item, props.value)" />
+        </el-option-group>
       </el-select>
     </template>
 
     <!-- 单选框，选项支持从api获取 -->
     <template v-if="props.field.type == 'radio'">
       <el-radio-group v-model="props.value[props.field.prop]">
-        <el-radio v-for="(item, idx) in state.optionData" :key="idx" :label="item.value">{{ item.label }}</el-radio>
+        <el-radio v-for="(item, idx) in state.optionData" :key="idx" :value="item.value">{{ item.label }}</el-radio>
       </el-radio-group>
     </template>
 
@@ -70,12 +85,13 @@
     <!-- 树形选择 -->
     <template v-if="props.field.type == 'treeSelect'">
       <el-tree-select v-model="props.value[props.field.prop]" :data="state.treeData" :render-after-expand="false"
-        :default-expand-all="true" check-strictly @node-click="onTreeNodeClick"></el-tree-select>
-      <el-tooltip content="刷新数据" placement="top">
-        <el-button @click="loadTreeData(props.field)" link>
-          <icon icon="ionicons5:reload" />
-        </el-button>
-      </el-tooltip>
+        :default-expand-all="true" check-strictly @node-click="onTreeNodeClick">
+        <template #header>
+          <el-button @click="loadTreeData(props.field)" link>
+            <Icon icon="ep:refresh" />刷新数据
+          </el-button>
+        </template>
+      </el-tree-select>
     </template>
 
     <!-- 日期 -->
@@ -101,10 +117,9 @@
 
     <!-- 图片+上传 -->
     <template v-if="props.field.type == 'image'">
-      <el-upload class="image-uploader" action=""
-        :show-file-list="getProp(props.field, 'options.multiple', false)" :on-success="onImageUploadSuccess"
-        :before-upload="beforeImageUpload" :with-credentials="true" :headers="getUploadHeaders()"
-        list-type="picture-card">
+      <el-upload class="image-uploader" action="" :show-file-list="getProp(props.field, 'options.multiple', false)"
+        :on-success="onImageUploadSuccess" :before-upload="beforeImageUpload" :with-credentials="true"
+        :headers="getUploadHeaders()" list-type="picture-card">
         <img v-if="state.imageUrl && !getProp(props.field, 'options.multiple', false)" :src="state.imageUrl"
           class="image" width="100" height="100" />
         <Icon v-else class="image-uploader-icon" icon="carbon:plus" />
@@ -113,25 +128,38 @@
 
     <!-- 文件上传 -->
     <template v-if="props.field.type == 'file'"></template>
+
+    <!-- 图标 icon -->
+    <template v-if="props.field.type == 'icon'">
+      <IconPicker v-model="props.value[props.field.prop]" />
+    </template>
   </el-form-item>
 </template>
-<script setup>
+<script setup lang="ts">
 import { onMounted, reactive, onActivated, onUnmounted, inject } from 'vue'
 import { convert, getProp, execProp } from '@/utils/common'
-// import { useApp } from '@/common/utils/app'
-// import AppConfig from '@/common/interface/config'
 import { useEventBus } from '@/hooks/event/useEventBus'
+import { IconPicker } from '@/components/IconPicker'
+import { KFormFieldProps, KFormLabelValueGroup, KFormLabelValue } from './types'
 
 // const app = useApp()
-const props = defineProps(['field', 'dicts', 'value'])
+const props = defineProps<{
+  field: KFormFieldProps
+  dicts: any
+  value: any
+}>()
 
 // const $event = inject('$EventBus')
 const $event = useEventBus()
 
 const state = reactive({
   treeData: [],
-  optionData: [], //select 和 radio 共用
+  optionData: <KFormLabelValue[]>[], //select 和 radio 共用
+  groupOptionData: <KFormLabelValueGroup[]>[],// 分组 select 的 option
   imageUrl: '', // 图片URL，上传单个图片时生效
+  loading: false,
+  timeout: null,
+  lastQuery: '',
 })
 
 const convertDictValue = value => {
@@ -167,34 +195,75 @@ const loadTreeData = field => {
   }
 }
 
-const loadOptionData = (field, val) => {
+const loadOptionData = async (field: KFormFieldProps, val: any, query?: string) => {
   state.optionData.splice(0)
+  state.groupOptionData.splice(0)
   //添加静态数据，静态数据必须是 {label:'',value:''} 的格式
-  if (field.options.data) {
-    if (typeof field.options.data == 'function') {
-      field.options.data().forEach(item => {
-        state.optionData.push(item)
-      })
+  const isGroupData = (d) => {
+    return 'values' in d
+  }
+  const isGroup = field.options?.group
+  const queryValue = query?.toLowerCase()
+  // 处理选项
+  const processItemFunc = (item) => {
+    // 进行过滤
+    if (queryValue && !item.label.toLowerCase().includes(queryValue)) return
+    if (!isGroup) {
+      state.optionData.push(item)
     } else {
-      field.options.data.forEach(item => {
-        state.optionData.push(item)
-      })
+      const group = item.group || '未分组'
+      if (!state.groupOptionData.some(g => g.label == group)) {
+        state.groupOptionData.push({ label: group, values: [] })
+      }
+      state.groupOptionData.find(g => g.label == group).values.push(item)
     }
   }
-  if (typeof field.options.optionApi == 'function') {
+  if (field.options?.data) {
+    const data = (typeof field.options?.data == 'function') ? field.options?.data(query) : field.options?.data
+    data.forEach(d => {
+      if (isGroupData(d)) {
+        // 分组数据
+        // 进行过滤
+        const values = d.values.filter(i => i.label.toLowerCase().includes(queryValue))
+        if (values.length > 0) {
+          state.groupOptionData.push({ label: d.label, values: values })
+        }
+        // state.groupOptionData.push(d)
+      } else {
+        // 分组属性
+        processItemFunc(d)
+      }
+    })
+  }
+  if (typeof field.options?.optionApi == 'function') {
     const parseItemFunc = src => {
       return {
-        label: typeof field.options.labelField === 'function' ? field.options.labelField(src) : src[field.options.labelField || 'label'],
-        value: typeof field.options.valueField === 'function' ? field.options.valueField(src) : src[field.options.valueField || 'value'],
+        label: typeof field.options?.labelField === 'function' ? field.options.labelField(src) : src[field.options?.labelField || 'label'],
+        value: typeof field.options?.valueField === 'function' ? field.options.valueField(src) : src[field.options?.valueField || 'value'],
+        group: typeof field.options?.groupField === 'function' ? field.options.groupField(src) : src[field.options?.groupField || 'group'],
         src: src,
       }
     }
-    field.options.optionApi(val).then(res => {
-      res.data.forEach(item => {
-        state.optionData.push(parseItemFunc(item))
-      })
+    const res = await field.options.optionApi(query)
+    res.data.forEach(d => {
+      processItemFunc(parseItemFunc(d))
     })
   }
+}
+
+const selectFilterMethod = async (query?: string) => {
+  // if (!query) return
+  if (query == state.lastQuery) return
+  if (state.timeout) clearTimeout(state.timeout)
+  state.timeout = setTimeout(async () => {
+    state.loading = true
+    try {
+      await loadOptionData(props.field, props.value, query)
+    } finally {
+      state.loading = false
+      state.lastQuery = query
+    }
+  }, 800)
 }
 
 const onTreeNodeClick = node => {
@@ -259,7 +328,7 @@ onUnmounted(() => {
 onMounted(() => {
   // console.log(import.meta.env.VITE_UPLOAD_PATH)
   // 看看有没有依赖的字段
-  let dependField = getProp(props.field, 'options.depend', '')
+  let dependField = props.field.depend
 
   // 根据字段控件类型进行相应的初始化
   if (props.field.type == 'treeSelect') {

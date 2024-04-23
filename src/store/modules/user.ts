@@ -5,7 +5,9 @@ import { ElMessageBox } from 'element-plus'
 import { useI18n } from '@/hooks/web/useI18n'
 import { loginOutApi } from '@/api/login'
 import { useTagsViewStore } from './tagsView'
+import { usePermissionStore } from './permission'
 import router from '@/router'
+import { clearPermissions } from '@/utils/permission'
 
 interface UserState {
   userInfo?: UserType
@@ -25,7 +27,7 @@ export const useUserStore = defineStore('user', {
       roleRouters: undefined,
       // 记住我
       rememberMe: true,
-      loginInfo: undefined
+      loginInfo: undefined,
     }
   },
   getters: {
@@ -33,7 +35,7 @@ export const useUserStore = defineStore('user', {
       return this.tokenKey
     },
     getToken(): string {
-      return 'Bearer '+this.token
+      return 'Bearer ' + this.token
     },
     getUserInfo(): UserType | undefined {
       return this.userInfo
@@ -46,7 +48,7 @@ export const useUserStore = defineStore('user', {
     },
     getLoginInfo(): UserLoginType | undefined {
       return this.loginInfo
-    }
+    },
   },
   actions: {
     setTokenKey(tokenKey: string) {
@@ -66,7 +68,7 @@ export const useUserStore = defineStore('user', {
       ElMessageBox.confirm(t('common.loginOutMessage'), t('common.reminder'), {
         confirmButtonText: t('common.ok'),
         cancelButtonText: t('common.cancel'),
-        type: 'warning'
+        type: 'warning',
       })
         .then(async () => {
           const res = await loginOutApi().catch(() => {})
@@ -82,6 +84,9 @@ export const useUserStore = defineStore('user', {
       this.setToken('')
       this.setUserInfo(undefined)
       this.setRoleRouters([])
+      const permissionStore = usePermissionStore()
+      permissionStore.resetRouters()
+      clearPermissions()
       router.replace('/login')
     },
     logout() {
@@ -92,9 +97,9 @@ export const useUserStore = defineStore('user', {
     },
     setLoginInfo(loginInfo: UserLoginType | undefined) {
       this.loginInfo = loginInfo
-    }
+    },
   },
-  persist: true
+  persist: true,
 })
 
 export const useUserStoreWithOut = () => {

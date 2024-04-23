@@ -1,19 +1,44 @@
 <template>
-    <div class="default-main zk-table-box">
-        <BaseTable :config="tableConfig" />
-        <BaseForm :config="formConfig" />
-    </div>
+    <ContentWrap v-show="!state.showDetail">
+        <KTable :config="tableConfig" />
+    </ContentWrap>
+    <ContentDetailWrap v-show="state.showDetail">
+        <template #header>
+            <div class="flex items-center gap-x-5">
+                <div>
+                    <el-button type="default" @click="hideDictDetail">
+                        <Icon icon="ep:back" />{{ state.currentDictName }}
+                    </el-button>
+                </div>
+                <div>
+                    点击按钮返回字典类型
+                </div>
+            </div>
+        </template>
+        <DictData ref="dictData" />
+    </ContentDetailWrap>
+    <KForm :config="formConfig" />
 </template>
-<script setup>
-import { onMounted, reactive } from 'vue'
-import { useApi } from '@/common/utils/api'
-import { Success, Error, WarningConfirm } from '@/common/utils/dlgs'
-import { BaseTable } from '@/common/components/BaseTable'
-import { BaseForm } from '@/common/components/BaseForm'
+<script setup lang="ts">
+import { onMounted, reactive, ref } from 'vue'
+import { ContentWrap } from '@/components/ContentWrap'
+import { ContentDetailWrap } from '@/components/ContentDetailWrap'
+import { Success, WarningConfirm } from '@/utils/dlgs'
+import { KTable } from '@/components/KTable'
+import { KTableProps, KTableLinkRendererOption, KTableSwitchRendererOption } from '@/components/KTable/types'
+import { KForm } from '@/components/KForm'
+import request from '@/axios'
+import DictData from './data.vue'
 
-const dictApi = useApi({ base: '/system/dict/type' })
+const dictData = ref(null)
 
-const tableConfig = reactive({
+const state = reactive({
+    showDetail: false,
+    currentDictType: '',
+    currentDictName: '',
+})
+
+const tableConfig = reactive(<KTableProps>{
     columns: [
         {
             prop: 'id',
@@ -27,9 +52,11 @@ const tableConfig = reactive({
             prop: 'dictType',
             label: '类型编码',
             renderer: {
-                type: 'router',
-                options: {
-                    path: row => `/system/dict/data/${row.dictType}`,
+                type: 'link',
+                options: <KTableLinkRendererOption>{
+                    // path: row => `/system/dict/data/${row.dictType}`,
+                    // path: '/system/dept'
+                    action(row) { showDictDetail(row) }
                 },
             },
         },
@@ -39,7 +66,7 @@ const tableConfig = reactive({
             changed: (row, to) => {
                 let action = to == '0' ? 'disable' : 'enable'
                 WarningConfirm(`确定要${action == 'disable' ? '停用' : '启用'} ${row.dictName} 吗？`).then(() => {
-                    dictApi.put('/status/' + action + '/' + row.id).then(res => {
+                    request.put({ url: '/system/dict/type/status/' + action + '/' + row.id }).then(res => {
                         if (res.code == 200) {
                             row.status = to == '0' ? '1' : '0'
                             Success(`字典类型 ${row.dictName} 已${action == 'disable' ? '停用' : '启用'}`)
@@ -49,9 +76,10 @@ const tableConfig = reactive({
             },
             renderer: {
                 type: 'switch',
-                options: {
+                options: <KTableSwitchRendererOption>{
                     active: '0',
                     inactive: '1',
+                    permissions: 'system:dict:status',
                 },
             },
         },
@@ -77,18 +105,10 @@ const tableConfig = reactive({
                 type: 'buttons',
                 options: {
                     buttons: [
+                        { type: 'success', label: '明细', icon: 'tabler:list-details', action: row => showDictDetail(row) },
+                        { type: 'primary', label: '编辑', icon: 'ep:edit', permissions: 'system:dict:edit', action: row => { editDictType(row.id) }, },
                         {
-                            type: 'primary',
-                            label: '编辑',
-                            icon: 'el-icon-Edit',
-                            action: row => {
-                                editDictType(row.id)
-                            },
-                        },
-                        {
-                            type: 'danger',
-                            label: '删除',
-                            icon: 'el-icon-Delete',
+                            type: 'danger', label: '删除', icon: 'ep:delete', permissions: 'system:dict:delete',
                             action: row => {
                                 deleteDictTypes([row.id], [row])
                             },
@@ -103,19 +123,9 @@ const tableConfig = reactive({
     },
     data: [],
     buttons: [
-        { name: 'add' },
-        {
-            name: 'edit',
-            isEnable: ts => {
-                return ts.selectedIds.length == 1
-            },
-        },
-        {
-            name: 'delete',
-            isEnable: ts => {
-                return ts.selectedIds.length > 0
-            },
-        },
+        { name: 'add', permissions: 'system:dict:create' },
+        { name: 'edit', permissions: 'system:dict:edit', isEnable: ts => { return ts.selectedIds.length == 1 }, },
+        { name: 'delete', permissions: 'system:dict:delete', isEnable: ts => { return ts.selectedIds.length > 0 }, },
     ],
     loading: false,
     search: {
@@ -134,7 +144,7 @@ const tableConfig = reactive({
         onDelete: ts => {
             deleteDictTypes(ts.selectedIds, ts.selectedRows)
         },
-        onAdd: ts => {
+        onAdd: _ => {
             addDictType()
         },
     },
@@ -152,8 +162,8 @@ const formConfig = reactive({
     ],
     layout: [{ dictName: 12, dictType: 12 }, { remark: 24 }],
     onSave: data => {
-        let api = data.id ? dictApi.put : dictApi.post
-        api('', data).then(res => {
+        let api = data.id ? request.put : request.post
+        api({ url: '/system/dict/type', data: data }).then(res => {
             if (res.code === 0) {
                 formConfig.open = false
                 Success(`${data.id ? '编辑' : '添加'}字典类型成功`)
@@ -169,7 +179,7 @@ const addDictType = () => {
 }
 
 const editDictType = id => {
-    dictApi.get(`/${id}`).then(res => {
+    request.get({ url: `/system/dict/type/${id}` }).then(res => {
         formConfig.data = res.data
         formConfig.open = true
     })
@@ -179,22 +189,33 @@ const deleteDictTypes = (ids, types) => {
     let msg = ids.length > 1 ? `确定要删除选中的 ${ids.length} 个字典类型吗？` : `确定要删除字典类型 ${types[0].dictName} 吗？`
     WarningConfirm(msg)
         .then(() => {
-            dictApi.delete(`/${ids.join(',')}`).then(res => {
+            request.delete({ url: `/system/dict/type/${ids.join(',')}` }).then(res => {
                 if (res.code === 0) {
                     Success('选中的字典类型已删除')
                     refreshData()
                 }
             })
         })
-        .catch(() => {})
+        .catch(() => { })
 }
 
-const refreshData = params => {
+const refreshData = (params?) => {
     tableConfig.loading = true
-    dictApi.get('/list', params || {}).then(res => {
+    request.get({ url: '/system/dict/type/list', params: params || {} }).then(res => {
         tableConfig.data = res.data
         tableConfig.loading = false
     })
+}
+
+const showDictDetail = (row) => {
+    state.showDetail = true
+    dictData.value.loadDictData(row.dictType)
+    // state.currentDictType = row.dictType
+    state.currentDictName = row.dictName
+}
+
+const hideDictDetail = () => {
+    state.showDetail = false
 }
 
 onMounted(() => {
